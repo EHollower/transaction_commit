@@ -162,6 +162,8 @@ THEOREM TPSpec => []TPTypeOK
 (***************************************************************************)
 TC == INSTANCE TCommit 
 
+TPConsistent == TC!TCConsistent
+
 THEOREM TPSpec => TC!TCSpec
   (*************************************************************************)
   (* This theorem asserts that the specification TPSpec of the Two-Phase   *)
