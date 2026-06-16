@@ -1,0 +1,3 @@
+target=BuggyTwoPhaseJpf
+classpath=${config_path}/build
+sourcepath=${config_path}

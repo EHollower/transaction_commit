@@ -1,0 +1,3 @@
+target=CorrectTwoPhaseJpf
+classpath=${config_path}/build
+sourcepath=${config_path}
