@@ -129,6 +129,12 @@ Screenshots:
 - `tests/JavaPathFinder/jpf_correct_ok.png`
 - `tests/JavaPathFinder/jpf_bug_found.png`
 
+## 8. GitHub Actions Workflow
+
+Asked the AI to add a reproducible CI workflow for the project.
+
+Result: created `.github/workflows/verify.yml`, which runs TLC, JUnit, and JavaPathFinder checks. The workflow verifies that the correct models pass and the intentionally buggy models fail with the expected errors.
+
 ## Note
 
 AI-generated code was reviewed and tested manually using TLC, JUnit, and JavaPathFinder.

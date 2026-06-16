@@ -1,0 +1,77 @@
+name: Verify
+
+on:
+  push:
+  pull_request:
+  workflow_dispatch:
+
+jobs:
+  verify:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Set up Java 17
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '17'
+
+      - name: Download TLC
+        run: |
+          mkdir -p tools
+          curl -L -o tools/tla2tools.jar https://github.com/tlaplus/tlaplus/releases/latest/download/tla2tools.jar
+
+      - name: Verify correct TLA+ model
+        run: |
+          java -XX:+UseParallelGC -cp tools/tla2tools.jar tlc2.TLC -config tla/TwoPhase.cfg tla/TwoPhase.tla
+
+      - name: Verify buggy TLA+ model fails as expected
+        run: |
+          set +e
+          java -XX:+UseParallelGC -cp tools/tla2tools.jar tlc2.TLC -config tla/TwoPhaseBuggy.cfg tla/TwoPhaseBuggy.tla > /tmp/tlc_buggy.log 2>&1
+          cat /tmp/tlc_buggy.log
+          if ! grep -q "Invariant TPConsistent is violated" /tmp/tlc_buggy.log; then
+            echo "Expected TLA+ invariant violation was not found."
+            exit 1
+          fi
+
+      - name: Run Java JUnit tests
+        run: mvn test
+
+      - name: Set up Java 11 for JavaPathFinder
+        uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: '11'
+
+      - name: Build JavaPathFinder
+        run: |
+          git clone --depth 1 https://github.com/javapathfinder/jpf-core.git tools/jpf-core
+          bash tools/jpf-core/gradlew -p tools/jpf-core buildJars
+          mkdir -p ~/.jpf
+          cat > ~/.jpf/site.properties <<EOF
+          jpf-core = $GITHUB_WORKSPACE/tools/jpf-core
+          extensions = \${jpf-core}
+          EOF
+
+      - name: Compile JavaPathFinder models
+        run: |
+          mkdir -p tests/JavaPathFinder/build
+          javac -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
+
+      - name: Verify correct JavaPathFinder model
+        run: |
+          tools/jpf-core/bin/jpf tests/JavaPathFinder/correct_two_phase.jpf
+
+      - name: Verify buggy JavaPathFinder model fails as expected
+        run: |
+          set +e
+          tools/jpf-core/bin/jpf tests/JavaPathFinder/buggy_two_phase.jpf > /tmp/jpf_buggy.log 2>&1
+          cat /tmp/jpf_buggy.log
+          if ! grep -q "AssertionError" /tmp/jpf_buggy.log; then
+            echo "Expected JavaPathFinder assertion error was not found."
+            exit 1
+          fi
