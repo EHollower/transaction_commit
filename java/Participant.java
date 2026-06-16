@@ -1,12 +1,5 @@
 import java.util.Objects;
 
-enum ParticipantState {
-    WORKING,
-    PREPARED,
-    COMMITTED,
-    ABORTED
-}
-
 public final class Participant {
     private final String id;
     private final boolean votePrepared;

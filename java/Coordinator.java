@@ -1,4 +1,3 @@
-import java.util.ArrayList;
 import java.util.Collection;
 import java.util.Collections;
 import java.util.LinkedHashMap;
@@ -9,12 +8,6 @@ import java.util.Objects;
 import java.util.Set;
 import java.util.concurrent.CompletableFuture;
 import java.util.concurrent.CompletionException;
-
-enum CoordinatorState {
-    INIT,
-    COMMITTED,
-    ABORTED
-}
 
 public final class Coordinator {
     private final List<Participant> participants;

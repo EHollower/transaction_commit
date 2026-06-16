@@ -1,3 +1,5 @@
+import gov.nasa.jpf.vm.Verify;
+
 public final class CorrectTwoPhaseJpf {
     private static final int WORKING = 0;
     private static final int PREPARED = 1;
@@ -8,52 +10,83 @@ public final class CorrectTwoPhaseJpf {
     private CorrectTwoPhaseJpf() {
     }
 
-    public static void main(String[] args) {
-        for (int voteMask = 0; voteMask < (1 << PARTICIPANT_COUNT); voteMask++) {
-            verifyTransaction(voteMask);
-        }
-    }
+    public static void main(String[] args) throws InterruptedException {
+        ParticipantModel[] participants = new ParticipantModel[PARTICIPANT_COUNT];
+        Thread[] participantThreads = new Thread[PARTICIPANT_COUNT];
 
-    private static void verifyTransaction(int voteMask) {
-        int[] rmState = {WORKING, WORKING, WORKING};
+        for (int i = 0; i < PARTICIPANT_COUNT; i++) {
+            participants[i] = new ParticipantModel();
+            participantThreads[i] = new Thread(new ParticipantVote(participants[i]));
+            participantThreads[i].start();
+        }
+
+        for (Thread participantThread : participantThreads) {
+            participantThread.join();
+        }
+
         int preparedCount = 0;
-
-        for (int rm = 0; rm < rmState.length; rm++) {
-            if (votesPrepared(voteMask, rm)) {
-                rmState[rm] = PREPARED;
+        for (ParticipantModel participant : participants) {
+            if (participant.state == PREPARED) {
                 preparedCount++;
-            } else {
-                rmState[rm] = ABORTED;
             }
         }
 
-        boolean commit = preparedCount == rmState.length;
-        for (int rm = 0; rm < rmState.length; rm++) {
-            if (commit) {
-                rmState[rm] = COMMITTED;
-            } else {
-                rmState[rm] = ABORTED;
-            }
+        boolean commit = preparedCount == PARTICIPANT_COUNT;
+        for (ParticipantModel participant : participants) {
+            participant.receiveDecision(commit);
         }
 
-        assertConsistent(rmState, voteMask);
+        assertConsistent(participants);
     }
 
-    private static boolean votesPrepared(int voteMask, int rm) {
-        return (voteMask & (1 << rm)) != 0;
-    }
-
-    private static void assertConsistent(int[] rmState, int voteMask) {
+    private static void assertConsistent(ParticipantModel[] participants) {
         boolean hasCommitted = false;
         boolean hasAborted = false;
 
-        for (int state : rmState) {
-            hasCommitted = hasCommitted || state == COMMITTED;
-            hasAborted = hasAborted || state == ABORTED;
+        for (ParticipantModel participant : participants) {
+            hasCommitted = hasCommitted || participant.state == COMMITTED;
+            hasAborted = hasAborted || participant.state == ABORTED;
         }
 
         if (hasCommitted && hasAborted) {
-            throw new AssertionError("Inconsistent decision for voteMask=" + voteMask);
+            throw new AssertionError("Inconsistent decision: committed and aborted participants exist");
+        }
+    }
+
+    private static final class ParticipantVote implements Runnable {
+        private final ParticipantModel participant;
+
+        private ParticipantVote(ParticipantModel participant) {
+            this.participant = participant;
+        }
+
+        @Override
+        public void run() {
+            if (Verify.getBoolean()) {
+                participant.prepare();
+            } else {
+                participant.abort();
+            }
+        }
+    }
+
+    private static final class ParticipantModel {
+        private int state = WORKING;
+
+        private void prepare() {
+            state = PREPARED;
+        }
+
+        private void abort() {
+            state = ABORTED;
+        }
+
+        private void receiveDecision(boolean commit) {
+            if (commit) {
+                state = COMMITTED;
+            } else {
+                state = ABORTED;
+            }
         }
     }
 }

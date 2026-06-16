@@ -1,12 +1,14 @@
 # JavaPathFinder Tests
 
-Small JavaPathFinder-compatible models for the Two-Phase Commit safety property.
+Small threaded JavaPathFinder models for the Two-Phase Commit safety property.
 
 Property checked:
 
 ```text
 No participant may commit while another participant aborts.
 ```
+
+Each participant runs in its own thread and makes a nondeterministic JPF choice with `Verify.getBoolean()`.
 
 Files:
 
@@ -18,8 +20,11 @@ Files:
 Run from project root:
 
 ```bash
+export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
+export PATH="$JAVA_HOME/bin:$PATH"
+
 mkdir -p tests/JavaPathFinder/build
-javac -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
+javac --release 11 -cp tools/jpf-core/build/jpf.jar -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
 
 tools/jpf-core/bin/jpf tests/JavaPathFinder/correct_two_phase.jpf
 tools/jpf-core/bin/jpf tests/JavaPathFinder/buggy_two_phase.jpf

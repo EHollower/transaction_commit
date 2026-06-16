@@ -1,140 +1,138 @@
-# AI Generation Log
+# Java Prompt Log
 
-This file summarizes how AI assistance was used in the project. Entries are summaries, not exact transcripts.
-
-## 1. Assignment Understanding
-
-Asked the AI to inspect the project PDF and explain the required deliverables.
-
-Result: clarified that the project needs a TLA+ model, two implementations, tests, a detected bug, documentation, presentation, and AI usage log.
-
-## 2. TLA+ Verification
-
-Asked how to run TLC on Arch Linux and verify `TwoPhase.tla`.
-
-Result: used `tla2tools.jar` and ran:
-
-```bash
-java -XX:+UseParallelGC -cp tools/tla2tools.jar tlc2.TLC -config tla/TwoPhase.cfg tla/TwoPhase.tla
-```
-
-Screenshots:
-
-- `tla/screenshots/invariant_ok.png`
-- `tla/screenshots/state_space.png`
-
-## 3. Consistency Invariant
-
-Asked how to check the consistency property from `TCommit.tla`.
-
-Result: added alias:
-
-```tla
-TPConsistent == TC!TCConsistent
-```
-
-and checked:
-
-```tla
-INVARIANTS TPTypeOK TPConsistent
-```
-
-## 4. Buggy TLA+ Model
-
-Asked the AI to create a buggy version for tool-based error detection.
-
-Result: created:
-
-- `tla/TwoPhaseBuggy.tla`
-- `tla/TwoPhaseBuggy.cfg`
-
-Bug introduced:
-
-```tla
-tmPrepared # {}
-```
-
-instead of:
-
-```tla
-tmPrepared = RM
-```
-
-TLC detected:
+## Prompt 1: Map The Verified Model To Java
 
 ```text
-Error: Invariant TPConsistent is violated.
+Inspect the existing Two-Phase Commit model and explain how the Java implementation should correspond to it.
+
+Focus only on the Java side.
+
+Map:
+- resource manager state to Java participant state;
+- transaction manager state to Java coordinator state;
+- prepared participants to a Java collection;
+- prepare, commit, and abort actions to Java methods;
+- commit and abort messages to Java message types.
+
+The main safety property is:
+No participant may commit while another participant aborts in the same transaction.
 ```
 
-Screenshot:
+## Prompt 2: Generate The Java Implementation
 
-- `tla/screenshots/bug_counterexample.png`
+```text
+Generate a minimal Java implementation of Two-Phase Commit.
 
-## 5. Java Implementation
+Create these files under `java/`:
+- `Coordinator.java`
+- `CoordinatorState.java`
+- `Participant.java`
+- `ParticipantState.java`
+- `Message.java`
+- `NetworkSimulator.java`
+- `FailureInjector.java`
+- `Main.java`
 
-Asked the AI to generate the Java implementation of Two-Phase Commit.
+Requirements:
+- use plain Java;
+- keep the code small and readable;
+- model participant states as WORKING, PREPARED, COMMITTED, ABORTED;
+- model coordinator states as INIT, COMMITTED, ABORTED;
+- participants start in WORKING;
+- a participant can prepare, abort, commit, or receive an abort decision;
+- the coordinator sends prepare requests to all participants;
+- the coordinator commits only if every participant prepared;
+- if any participant aborts, fails, or does not prepare, the coordinator aborts;
+- commit and abort decisions are broadcast to every participant;
+- duplicate decision messages must not corrupt state.
 
-Result: created:
+Also include a non-default buggy coordinator mode for tests, where the coordinator commits after any participant prepared.
+```
 
-- `java/Coordinator.java`
-- `java/Participant.java`
-- `java/Message.java`
-- `java/NetworkSimulator.java`
-- `java/FailureInjector.java`
-- `java/Main.java`
+## Prompt 3: Add JUnit Tests
 
-## 6. JUnit Tests
+```text
+Add JUnit 5 tests for the Java Two-Phase Commit implementation.
 
-Asked the AI to generate Java tests.
-
-Result: created:
-
+Create or update:
 - `pom.xml`
 - `tests/junit/TwoPhaseCommitTest.java`
 
-Tests cover commit, abort, participant failure, duplicate messages, and buggy coordinator behavior.
+Use `java/` as the Java source directory and `tests/junit/` as the test source directory.
 
-Verified with:
+Add tests for:
+- all participants prepare, so the coordinator commits and all participants commit;
+- one participant aborts, so the coordinator aborts and all participants abort;
+- one participant is unreachable before prepare, so the global decision is abort;
+- duplicate decision messages do not change a stable committed state incorrectly;
+- the intentionally buggy coordinator commits without all participants prepared and the test detects inconsistency.
 
-```bash
-mvn test
+The tests must check the safety property:
+No committed participant may coexist with an aborted participant.
 ```
 
-Result:
+## Prompt 4: Improve JavaPathFinder Testing
 
 ```text
-Tests run: 5, Failures: 0, Errors: 0, Skipped: 0
-BUILD SUCCESS
+Improve the JavaPathFinder part so it checks Java-side nondeterministic or concurrent behavior, not just fixed sequential cases.
+
+Create or update files under `tests/JavaPathFinder/`:
+- `CorrectTwoPhaseJpf.java`
+- `BuggyTwoPhaseJpf.java`
+- `correct_two_phase.jpf`
+- `buggy_two_phase.jpf`
+- `README.md`
+
+Requirements:
+- each participant should run in its own thread;
+- each participant should use `Verify.getBoolean()` to nondeterministically choose prepare or abort;
+- the correct model commits only if all participants prepared;
+- the buggy model commits if at least one participant prepared;
+- both models must assert that committed and aborted participants cannot coexist in the same final state;
+- the correct model should pass JavaPathFinder;
+- the buggy model should fail with an assertion error.
 ```
 
-Screenshot:
+## Prompt 5: Clean Up Java Warnings
 
-- `tests/junit/java_tests_ok.png`
+```text
+Inspect the Java implementation for avoidable compiler warnings.
 
-## 7. JavaPathFinder
+If `CoordinatorState` or `ParticipantState` are top-level auxiliary types inside another `.java` file, move them into their own files:
+- `java/CoordinatorState.java`
+- `java/ParticipantState.java`
 
-Asked the AI to add JavaPathFinder artifacts.
+Keep behavior unchanged and make sure the code still compiles with:
 
-Result: created a small JPF-compatible model instead of running JPF directly on the full Java implementation.
+`javac -Xlint:all -d /tmp/opencode/transaction_commit_lint_classes java/*.java`
+```
 
-Files:
+## Prompt 6: Review Java Correctness
 
-- `tests/JavaPathFinder/CorrectTwoPhaseJpf.java`
-- `tests/JavaPathFinder/BuggyTwoPhaseJpf.java`
-- `tests/JavaPathFinder/correct_two_phase.jpf`
-- `tests/JavaPathFinder/buggy_two_phase.jpf`
+```text
+Review only the Java implementation and Java tests.
 
-Screenshots:
+Check:
+- the coordinator commits only after all participants prepared;
+- abort or participant failure leads to global abort;
+- duplicate commit or abort decisions are safe;
+- the buggy coordinator mode is not used by default;
+- JUnit tests cover the important success and failure cases;
+- JavaPathFinder explores nondeterministic participant choices and thread schedules;
+- the Java code matches the safety property: no committed participant may coexist with an aborted participant.
 
-- `tests/JavaPathFinder/jpf_correct_ok.png`
-- `tests/JavaPathFinder/jpf_bug_found.png`
+Return only concrete issues and the smallest fixes.
+```
 
-## 8. GitHub Actions Workflow
+## Prompt 7: Java Verification Commands
 
-Asked the AI to add a reproducible CI workflow for the project.
+```text
+List the exact commands needed to verify only the Java part of the project.
 
-Result: created `.github/workflows/verify.yml`, which runs TLC, JUnit, and JavaPathFinder checks. The workflow verifies that the correct models pass and the intentionally buggy models fail with the expected errors.
-
-## Note
-
-AI-generated code was reviewed and tested manually using TLC, JUnit, and JavaPathFinder.
+Include commands for:
+- compiling the Java implementation with warnings enabled;
+- running the JUnit tests;
+- compiling the JavaPathFinder models;
+- running the correct JavaPathFinder model;
+- running the buggy JavaPathFinder model.
+```

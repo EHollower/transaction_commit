@@ -22,7 +22,7 @@ jobs:
       - name: Download TLC
         run: |
           mkdir -p tools
-          curl -L -o tools/tla2tools.jar https://github.com/tlaplus/tlaplus/releases/latest/download/tla2tools.jar
+          curl -L -o tools/tla2tools.jar https://github.com/tlaplus/tlaplus/releases/download/v1.7.4/tla2tools.jar
 
       - name: Verify correct TLA+ model
         run: |
@@ -49,7 +49,8 @@ jobs:
 
       - name: Build JavaPathFinder
         run: |
-          git clone --depth 1 https://github.com/javapathfinder/jpf-core.git tools/jpf-core
+          git clone https://github.com/javapathfinder/jpf-core.git tools/jpf-core
+          git -C tools/jpf-core checkout 2bf98722c49a8149f9a6f68acb9edc6ba5cdd557
           bash tools/jpf-core/gradlew -p tools/jpf-core buildJars
           mkdir -p ~/.jpf
           cat > ~/.jpf/site.properties <<EOF
@@ -60,7 +61,7 @@ jobs:
       - name: Compile JavaPathFinder models
         run: |
           mkdir -p tests/JavaPathFinder/build
-          javac -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
+          javac --release 11 -cp tools/jpf-core/build/jpf.jar -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
 
       - name: Verify correct JavaPathFinder model
         run: |
