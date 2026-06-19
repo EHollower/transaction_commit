@@ -1,7 +1,11 @@
 package main
 
 import (
+	"flag"
 	"fmt"
+	"os"
+	"strconv"
+	"strings"
 	"sync"
 	"time"
 )
@@ -23,8 +27,16 @@ const (
 	TMAborted   TMState = "aborted"
 )
 
-type PreparedMsg struct {
+type VoteType int
+
+const (
+	PreparedVote VoteType = iota
+	PrepareFailedVote
+)
+
+type VoteMsg struct {
 	RMID string
+	Vote VoteType
 }
 
 type CommitMsg struct{}
@@ -34,8 +46,10 @@ type ResourceManager struct {
 	ID string
 
 	state RMState
+	
+	shouldFail bool
 
-	toTM chan<- PreparedMsg
+	toTM chan<- VoteMsg
 
 	fromTM chan any
 
@@ -44,12 +58,14 @@ type ResourceManager struct {
 
 func NewRM(
 	id string,
-	toTM chan<- PreparedMsg,
+	shouldFail bool,
+	toTM chan<- VoteMsg,
 	wg *sync.WaitGroup,
 ) *ResourceManager {
 
 	return &ResourceManager{
 		ID:     id,
+		shouldFail: shouldFail,
 		state:  Working,
 		toTM:   toTM,
 		fromTM: make(chan any),
@@ -65,12 +81,25 @@ func (rm *ResourceManager) Run() {
 	 */
 	time.Sleep(10 * time.Millisecond)
 
-	rm.state = Prepared
+	if rm.shouldFail {
 
-	fmt.Printf("%s prepared\n", rm.ID)
+		fmt.Printf("%s prepare FAILED\n", rm.ID)
 
-	rm.toTM <- PreparedMsg{
-		RMID: rm.ID,
+		rm.toTM <- VoteMsg{
+			RMID: rm.ID,
+			Vote: PrepareFailedVote,
+		}
+
+	} else {
+
+		rm.state = Prepared
+
+		fmt.Printf("%s prepared\n", rm.ID)
+
+		rm.toTM <- VoteMsg{
+			RMID: rm.ID,
+			Vote: PreparedVote,
+		}
 	}
 
 	/*
@@ -78,6 +107,11 @@ func (rm *ResourceManager) Run() {
 	 * RMRcvAbortMsg.
 	 */
 	msg := <-rm.fromTM
+	
+	if rm.shouldFail {
+		rm.state = Aborted;
+		return;
+	}
 
 	switch msg.(type) {
 
@@ -98,14 +132,16 @@ type TransactionManager struct {
 
 	prepared map[string]bool
 
-	preparedCh chan PreparedMsg
+	abortRequested bool
+
+	voteCh chan VoteMsg
 
 	wg *sync.WaitGroup
 }
 
 func NewTM(
 	rms []*ResourceManager,
-	preparedCh chan PreparedMsg,
+	voteCh chan VoteMsg,
 	wg *sync.WaitGroup,
 ) *TransactionManager {
 
@@ -113,7 +149,7 @@ func NewTM(
 		state:      Init,
 		rms:        rms,
 		prepared:   make(map[string]bool),
-		preparedCh: preparedCh,
+		voteCh: voteCh,
 		wg:         wg,
 	}
 }
@@ -121,46 +157,112 @@ func NewTM(
 func (tm *TransactionManager) Run() {
 	defer tm.wg.Done()
 
-	// Wait for the FIRST Prepared message only.
-	msg := <-tm.preparedCh
+	for {
+		msg := <-tm.voteCh
 
-	tm.prepared[msg.RMID] = true
+		switch msg.Vote {
 
-	fmt.Printf(
-		"TM received Prepared from %s\n",
-		msg.RMID,
-	)
+		case PreparedVote:
 
-	// BUG:
-	// Equivalent to tmPrepared # {}
-	tm.state = TMCommitted
+			tm.prepared[msg.RMID] = true
 
-	fmt.Println("TM committing")
+			fmt.Printf(
+				"TM received PREPARED from %s\n",
+				msg.RMID,
+			)
 
-	for _, rm := range tm.rms {
-		rm.fromTM <- CommitMsg{}
+			// BUG:
+			// Equivalent to tmPrepared # {}
+			// Commit immediately after the first
+			// successful prepare vote.
+			tm.state = TMCommitted
+
+			fmt.Println("TM committing")
+
+			for _, rm := range tm.rms {
+				rm.fromTM <- CommitMsg{}
+			}
+
+			return
+
+		case PrepareFailedVote:
+
+			fmt.Printf(
+				"TM received PREPARE_FAILED from %s\n",
+				msg.RMID,
+			)
+
+			// Ignore failures for now and keep waiting
+			// for a PreparedVote.
+		}
 	}
 }
 
 func main() {
+	rmArg := flag.String(
+		"rm",
+		"",
+		"comma-separated list of RM failure flags (0 or 1)",
+	)
+
+	bufferedChannel := flag.Bool(
+		"bufferedChannel",
+		false,
+		"use a buffered vote channel",
+	)
+
+	flag.Parse()
+
+	if *rmArg == "" {
+		fmt.Println("usage:")
+		fmt.Println("  TwoPhase --rm=1,0,1,0,0,1 [--bufferedChannel]")
+		os.Exit(1)
+	}
+
+	rmFlags := strings.Split(*rmArg, ",")
+
+	numRM := len(rmFlags)
 
 	var wg sync.WaitGroup
 
-	preparedCh := make(chan PreparedMsg, 3)
+	var voteCh chan VoteMsg
 
-	rm1 := NewRM("rm1", preparedCh, &wg)
-	rm2 := NewRM("rm2", preparedCh, &wg)
-	rm3 := NewRM("rm3", preparedCh, &wg)
+	if *bufferedChannel {
+		voteCh = make(chan VoteMsg, numRM)
+	} else {
+		voteCh = make(chan VoteMsg)
+	}
 
-	rms := []*ResourceManager{
-		rm1,
-		rm2,
-		rm3,
+	rms := make([]*ResourceManager, 0, numRM)
+
+	for i, s := range rmFlags {
+
+		s = strings.TrimSpace(s)
+
+		v, err := strconv.Atoi(s)
+		if err != nil || (v != 0 && v != 1) {
+			fmt.Printf(
+				"invalid rm specification '%s' (must be 0 or 1)\n",
+				s,
+			)
+			os.Exit(1)
+		}
+
+		shouldFail := (v == 1)
+
+		rm := NewRM(
+			fmt.Sprintf("rm%d", i+1),
+			shouldFail,
+			voteCh,
+			&wg,
+		)
+
+		rms = append(rms, rm)
 	}
 
 	tm := NewTM(
 		rms,
-		preparedCh,
+		voteCh,
 		&wg,
 	)
 
