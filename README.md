@@ -59,4 +59,5 @@ go run go/TwoPhaseAlgorithmLogicBug.go --rm=0,0,1 --bufferedChannel
 
 - Java tests: `java/tests/junit/README.md`
 - JavaPathFinder: `java/tests/JavaPathFinder/README.md`
+- Go details: `go/README.md`
 - AI prompts: `prompts/ai_generation_log.md`
