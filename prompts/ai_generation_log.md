@@ -56,9 +56,9 @@ Add JUnit 5 tests for the Java Two-Phase Commit implementation.
 
 Create or update:
 - `pom.xml`
-- `tests/junit/TwoPhaseCommitTest.java`
+- `java/tests/junit/TwoPhaseCommitTest.java`
 
-Use `java/` as the Java source directory and `tests/junit/` as the test source directory.
+Use `java/` as the Java source directory and `java/tests/junit/` as the test source directory.
 
 Add tests for:
 - all participants prepare, so the coordinator commits and all participants commit;
@@ -76,7 +76,7 @@ No committed participant may coexist with an aborted participant.
 ```text
 Improve the JavaPathFinder part so it checks Java-side nondeterministic or concurrent behavior, not just fixed sequential cases.
 
-Create or update files under `tests/JavaPathFinder/`:
+Create or update files under `java/tests/JavaPathFinder/`:
 - `CorrectTwoPhaseJpf.java`
 - `BuggyTwoPhaseJpf.java`
 - `correct_two_phase.jpf`

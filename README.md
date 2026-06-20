@@ -9,11 +9,10 @@ The project combines a formal TLA+ model with Java and Go implementations, plus 
 - `tla/`: TLA+ specifications, TLC configs, and verification screenshots.
 - `java/`: Java implementation of Two-Phase Commit.
 - `go/`: Go implementation and buggy Go experiment.
-- `tests/junit/`: JUnit tests for the Java implementation.
-- `tests/JavaPathFinder/`: JavaPathFinder models and screenshots.
+- `java/tests/junit/`: JUnit tests for the Java implementation.
+- `java/tests/JavaPathFinder/`: JavaPathFinder models and screenshots.
 - `prompts/`: AI prompt logs.
 - `.github/workflows/`: CI verification workflow.
-- `docs/`: LaTeX report and presentation sources.
 
 ## Main Safety Property
 
@@ -58,7 +57,6 @@ go run go/TwoPhaseAlgorithmLogicBug.go --rm=0,0,1 --bufferedChannel
 
 ## More Details
 
-- Java tests: `tests/junit/README.md`
-- JavaPathFinder: `tests/JavaPathFinder/README.md`
-- Report and presentation: `docs/`
+- Java tests: `java/tests/junit/README.md`
+- JavaPathFinder: `java/tests/JavaPathFinder/README.md`
 - AI prompts: `prompts/ai_generation_log.md`

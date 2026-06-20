@@ -23,14 +23,14 @@ Run from project root:
 export JAVA_HOME=/usr/lib/jvm/java-11-openjdk
 export PATH="$JAVA_HOME/bin:$PATH"
 
-mkdir -p tests/JavaPathFinder/build
-javac --release 11 -cp tools/jpf-core/build/jpf.jar -d tests/JavaPathFinder/build tests/JavaPathFinder/CorrectTwoPhaseJpf.java tests/JavaPathFinder/BuggyTwoPhaseJpf.java
+mkdir -p java/tests/JavaPathFinder/build
+javac --release 11 -cp tools/jpf-core/build/jpf.jar -d java/tests/JavaPathFinder/build java/tests/JavaPathFinder/CorrectTwoPhaseJpf.java java/tests/JavaPathFinder/BuggyTwoPhaseJpf.java
 
-tools/jpf-core/bin/jpf tests/JavaPathFinder/correct_two_phase.jpf
-tools/jpf-core/bin/jpf tests/JavaPathFinder/buggy_two_phase.jpf
+tools/jpf-core/bin/jpf java/tests/JavaPathFinder/correct_two_phase.jpf
+tools/jpf-core/bin/jpf java/tests/JavaPathFinder/buggy_two_phase.jpf
 ```
 
 Screenshots:
 
-- `jpf_correct_ok.png`: correct model passes.
-- `jpf_bug_found.png`: buggy model fails with an assertion error.
+- `screenshots/jpf_correct_ok.png`: correct model passes.
+- `screenshots/jpf_bug_found.png`: buggy model fails with an assertion error.
