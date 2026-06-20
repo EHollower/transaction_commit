@@ -19,6 +19,11 @@ jobs:
           distribution: temurin
           java-version: '17'
 
+      - name: Set up Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: '1.22'
+
       - name: Download TLC
         run: |
           mkdir -p tools
@@ -40,6 +45,50 @@ jobs:
 
       - name: Run Java JUnit tests
         run: mvn test
+
+      - name: Verify correct Go implementation commits
+        run: |
+          go run go/TwoPhase.go --rm=0,0,0 > /tmp/go_correct_commit.log
+          cat /tmp/go_correct_commit.log
+          grep -q "TM = committed" /tmp/go_correct_commit.log
+          grep -q "rm1 = committed" /tmp/go_correct_commit.log
+          grep -q "rm2 = committed" /tmp/go_correct_commit.log
+          grep -q "rm3 = committed" /tmp/go_correct_commit.log
+
+      - name: Verify correct Go implementation aborts
+        run: |
+          go run go/TwoPhase.go --rm=0,0,1 > /tmp/go_correct_abort.log
+          cat /tmp/go_correct_abort.log
+          grep -q "TM = aborted" /tmp/go_correct_abort.log
+          grep -q "rm1 = aborted" /tmp/go_correct_abort.log
+          grep -q "rm2 = aborted" /tmp/go_correct_abort.log
+          grep -q "rm3 = aborted" /tmp/go_correct_abort.log
+
+      - name: Verify buggy Go unbuffered version deadlocks
+        run: |
+          set +e
+          timeout 10s go run go/TwoPhaseAlgorithmLogicBug.go --rm=0,0,1 > /tmp/go_bug_unbuffered.log 2>&1
+          status=$?
+          cat /tmp/go_bug_unbuffered.log
+          if [ "$status" -eq 0 ]; then
+            echo "Buggy unbuffered Go implementation unexpectedly completed."
+            exit 1
+          fi
+          grep -Eq "deadlock|timed out|all goroutines are asleep" /tmp/go_bug_unbuffered.log
+
+      - name: Verify buggy Go buffered version is inconsistent
+        run: |
+          go run go/TwoPhaseAlgorithmLogicBug.go --rm=0,0,1 --bufferedChannel > /tmp/go_bug_buffered.log
+          cat /tmp/go_bug_buffered.log
+          grep -q "TM = committed" /tmp/go_bug_buffered.log
+          grep -q "committed" /tmp/go_bug_buffered.log
+          grep -q "aborted" /tmp/go_bug_buffered.log
+
+      - name: Run Go race detector on buffered buggy version
+        run: |
+          go run -race go/TwoPhaseAlgorithmLogicBug.go --rm=0,0,1 --bufferedChannel > /tmp/go_race_buffered.log
+          cat /tmp/go_race_buffered.log
+          grep -q "TM = committed" /tmp/go_race_buffered.log
 
       - name: Set up Java 11 for JavaPathFinder
         uses: actions/setup-java@v4
