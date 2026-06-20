@@ -136,3 +136,26 @@ Include commands for:
 - running the correct JavaPathFinder model;
 - running the buggy JavaPathFinder model.
 ```
+
+
+# Go Prompt Log
+
+## Prompt 1: Map The Verified Model To Go
+
+```text
+i have this tla+ code: <TwoPhase.tla>, <TCommit.tla>. Inspect the existing Two-Phase Commit model and explain how a golang implementation should correspond to it. 
+Focus only on the golang side.
+```
+
+## Prompt 2: Generate the Go code file
+
+```text
+can you generate a minimal golang implementation of this Two-Phase Commit?
+```
+
+## Prompt 3: Reimplement Go code to introduce concurrency
+
+```text
+can you reimplement the golang code to use real concurrency (threads)? my plan is the following: create a go implementation of the tla specification, then modify the specification to introduce a concurrency bug and generate again a go implementation. the goal is to compare the tla verification tool to concurrency tools for programming languages (go in this case). can you reimplement the go code?
+```
+
